@@ -171,6 +171,11 @@ def fetch_info(url: str, cookie_bytes: bytes | None, proxy: str | None = None):
         "socket_timeout": 15,   # fail a stalled connection instead of hanging forever
         "retries": 2,
         "extractor_retries": 1,
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["android", "ios", "web"],
+            }
+        },
     }
     if proxy:
         ydl_opts["proxy"] = proxy
@@ -222,6 +227,29 @@ with st.expander("⚠️ Before you use this"):
         "for reuse (Creative Commons, public domain, your own uploads).\n"
         "- Respect the terms of service of the platform you're downloading from.\n"
         "- If you deploy this publicly, consider adding your own usage disclaimer for visitors."
+    )
+
+with st.expander("❓ Why do some downloads fail? (Help & Troubleshooting)"):
+    st.markdown(
+        """
+        ### Common reasons and how to fix them:
+        
+        1. **Bot Detection / Rate Limiting (Sign-in blocks)**:
+           - Platforms like YouTube actively block datacenter IP addresses (e.g., Streamlit Cloud servers).
+           - **Fix**: Use a **Proxy Server** in the Advanced Options to route your request through a home/residential IP.
+        
+        2. **Age-Restricted, Private, or Member-Only Content**:
+           - These require you to be logged into YouTube to view.
+           - **Fix**: Use a browser extension (like "Get cookies.txt LOCALLY") to export your cookies in Netscape format and upload them to the **Cookies file** field in Advanced Options.
+        
+        3. **Region / Geo-Blocking**:
+           - Some videos are only viewable from specific countries.
+           - **Fix**: Use a **Proxy Server** located in the country where the video is allowed.
+        
+        4. **DRM (Digital Rights Management) / Paid Content**:
+           - Purchased movies, TV shows, or YouTube Premium exclusive protected streams are encrypted.
+           - **Fix**: These cannot be downloaded due to hardware encryption. No public downloaders support DRM decryption.
+        """
     )
 
 url = st.text_input("Paste a video/audio URL", placeholder="https://...")
@@ -343,6 +371,11 @@ if info and st.session_state.get("url") == url:
             "no_warnings": True,
             "socket_timeout": 15,
             "retries": 3,
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android", "ios", "web"],
+                }
+            },
         }
         if proxy:
             ydl_opts["proxy"] = proxy
