@@ -127,7 +127,11 @@ if url:
     if st.button("🔍 Fetch info", use_container_width=True):
         with st.spinner("Fetching metadata..."):
             try:
-                cookie_bytes = cookies_file.read() if cookies_file else None
+                if cookies_file:
+                    cookies_file.seek(0)
+                    cookie_bytes = cookies_file.read()
+                else:
+                    cookie_bytes = None
                 info = fetch_info(url, cookie_bytes)
                 st.session_state["info"] = info
                 st.session_state["cookie_bytes"] = cookie_bytes
@@ -161,7 +165,14 @@ if info and st.session_state.get("url") == url:
         audio_quality = AUDIO_QUALITIES[quality_label]
         format_selector = "bestaudio/best"
 
+    # Construct a key for current download configuration to invalidate stale downloads if settings change
+    config_key = (url, mode, quality_label, audio_format, audio_quality)
+    if "last_config_key" not in st.session_state or st.session_state["last_config_key"] != config_key:
+        st.session_state["last_config_key"] = config_key
+        st.session_state["downloaded_file"] = None
+
     if st.button("⬇️ Download", type="primary", use_container_width=True):
+        st.session_state["downloaded_file"] = None
         progress_bar = st.progress(0)
         status_text = st.empty()
 
@@ -187,7 +198,16 @@ if info and st.session_state.get("url") == url:
 
         tmp_dir = tempfile.mkdtemp()
         tmp_cookie_path = None
-        cookie_bytes = st.session_state.get("cookie_bytes")
+        
+        # Read the cookies file directly from the uploader if provided, or fallback to session_state
+        if cookies_file:
+            try:
+                cookies_file.seek(0)
+                cookie_bytes = cookies_file.read()
+            except Exception:
+                cookie_bytes = st.session_state.get("cookie_bytes")
+        else:
+            cookie_bytes = st.session_state.get("cookie_bytes")
 
         ydl_opts = {
             "format": format_selector,
@@ -230,18 +250,27 @@ if info and st.session_state.get("url") == url:
                 with open(out_path, "rb") as f:
                     data = f.read()
                 status_text.text("Done!")
-                st.success(f"Ready: {files[0]} ({sizeof_fmt(len(data))})")
-                st.download_button(
-                    "💾 Save file",
-                    data=data,
-                    file_name=sanitize_filename(files[0]),
-                    use_container_width=True,
-                )
+                st.session_state["downloaded_file"] = {
+                    "name": files[0],
+                    "data": data
+                }
         except Exception as e:
             st.error(f"Download failed: {e}")
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
             if tmp_cookie_path:
                 os.unlink(tmp_cookie_path)
+
+    # Show the download/save button persistently if a file was successfully downloaded
+    downloaded_file = st.session_state.get("downloaded_file")
+    if downloaded_file:
+        st.success(f"Ready: {downloaded_file['name']} ({sizeof_fmt(len(downloaded_file['data']))})")
+        st.download_button(
+            "💾 Save file",
+            data=downloaded_file["data"],
+            file_name=sanitize_filename(downloaded_file["name"]),
+            use_container_width=True,
+            key="save_download_button"
+        )
 else:
     st.info("Paste a URL above and click **Fetch info** to get started.")
