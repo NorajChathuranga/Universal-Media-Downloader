@@ -171,6 +171,7 @@ def fetch_info(url: str, cookie_bytes: bytes | None, proxy: str | None = None):
         "socket_timeout": 15,   # fail a stalled connection instead of hanging forever
         "retries": 2,
         "extractor_retries": 1,
+        "noplaylist": True,     # ignore playlist parameters to extract only the target video metadata instantly
         "extractor_args": {
             "youtube": {
                 "player_client": ["android", "ios", "web"],
