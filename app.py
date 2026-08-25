@@ -221,6 +221,8 @@ st.caption(
     "SoundCloud, Facebook, Vimeo and 1000+ other sites."
 )
 
+st.info("💡 **Tip**: If you run this app **locally on your computer**, it uses your home network and will download almost any public video instantly with just the URL (no cookies or proxies needed) — exactly like commercial downloader sites!")
+
 with st.expander("⚠️ Before you use this"):
     st.markdown(
         "- Only download content you own, have permission to use, or that's licensed "
