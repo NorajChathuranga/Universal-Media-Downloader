@@ -1,3 +1,4 @@
+import concurrent.futures
 import os
 import re
 import shutil
@@ -5,6 +6,8 @@ import tempfile
 
 import streamlit as st
 import yt_dlp
+
+FETCH_TIMEOUT_SECS = 25
 
 st.set_page_config(page_title="Universal Downloader", page_icon="⬇️", layout="centered")
 
@@ -54,7 +57,14 @@ def sanitize_filename(name):
 @st.cache_data(show_spinner=False, ttl=600)
 def fetch_info(url: str, cookie_bytes: bytes | None):
     """Pull metadata only — no media is downloaded here."""
-    ydl_opts = {"quiet": True, "no_warnings": True, "skip_download": True}
+    ydl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "skip_download": True,
+        "socket_timeout": 15,   # fail a stalled connection instead of hanging forever
+        "retries": 2,
+        "extractor_retries": 1,
+    }
     tmp_cookie_path = None
     if cookie_bytes:
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".txt")
@@ -62,9 +72,26 @@ def fetch_info(url: str, cookie_bytes: bytes | None):
         tmp.close()
         tmp_cookie_path = tmp.name
         ydl_opts["cookiefile"] = tmp_cookie_path
-    try:
+
+    def _run():
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             return ydl.extract_info(url, download=False)
+
+    try:
+        # Belt-and-braces: socket_timeout covers most stalls, but a hard wall-clock
+        # timeout here guarantees the UI never spins forever even on an edge case
+        # socket_timeout doesn't catch (e.g. a DNS-level stall).
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+            future = ex.submit(_run)
+            try:
+                return future.result(timeout=FETCH_TIMEOUT_SECS)
+            except concurrent.futures.TimeoutError:
+                raise TimeoutError(
+                    f"No response after {FETCH_TIMEOUT_SECS}s. This almost always means the "
+                    "server's IP is being rate-limited or blocked by the platform (common on "
+                    "shared cloud IPs) rather than a bug in the request itself — try again "
+                    "later, from a different network, or with a cookies file."
+                )
     finally:
         if tmp_cookie_path:
             os.unlink(tmp_cookie_path)
@@ -169,6 +196,8 @@ if info and st.session_state.get("url") == url:
             "progress_hooks": [progress_hook],
             "quiet": True,
             "no_warnings": True,
+            "socket_timeout": 15,
+            "retries": 3,
         }
 
         if mode == "Video":
