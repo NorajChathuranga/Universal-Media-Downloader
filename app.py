@@ -174,7 +174,7 @@ def fetch_info(url: str, cookie_bytes: bytes | None, proxy: str | None = None):
         "noplaylist": True,     # ignore playlist parameters to extract only the target video metadata instantly
         "extractor_args": {
             "youtube": {
-                "player_client": ["android", "ios", "web"],
+                "formats": ["missing_pot"],
             }
         },
     }
@@ -376,7 +376,7 @@ if info and st.session_state.get("url") == url:
             "retries": 3,
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["android", "ios", "web"],
+                    "formats": ["missing_pot"],
                 }
             },
         }
