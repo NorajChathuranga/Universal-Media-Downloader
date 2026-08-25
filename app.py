@@ -11,6 +11,113 @@ FETCH_TIMEOUT_SECS = 25
 
 st.set_page_config(page_title="Universal Downloader", page_icon="⬇️", layout="centered")
 
+# Custom Premium CSS Styling
+st.markdown(
+    """
+    <style>
+    /* Dark glassmorphism theme and typography */
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+    
+    html, body, [class*="css"], .stApp {
+        font-family: 'Outfit', sans-serif !important;
+    }
+    
+    /* Background gradient */
+    [data-testid="stAppViewContainer"] {
+        background: radial-gradient(circle at top right, #1a1b36 0%, #0d0e15 100%) !important;
+    }
+    
+    [data-testid="stHeader"] {
+        background-color: rgba(0, 0, 0, 0) !important;
+    }
+    
+    /* Center container card styling */
+    .stApp > div {
+        color: #f3f4f6;
+    }
+    
+    /* Input formatting */
+    .stTextInput > div > div > input {
+        background-color: rgba(255, 255, 255, 0.05) !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        border-radius: 12px !important;
+        color: #f3f4f6 !important;
+        padding: 12px 16px !important;
+        transition: all 0.3s ease;
+    }
+    .stTextInput > div > div > input:focus {
+        border-color: #667eea !important;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3) !important;
+    }
+    
+    /* Select boxes */
+    .stSelectbox > div > div > div {
+        background-color: rgba(255, 255, 255, 0.05) !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        border-radius: 12px !important;
+        color: #f3f4f6 !important;
+    }
+    
+    /* Expanders */
+    .streamlit-expanderHeader {
+        background-color: rgba(255, 255, 255, 0.03) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-radius: 12px !important;
+        color: #f3f4f6 !important;
+    }
+    .streamlit-expanderContent {
+        background-color: rgba(255, 255, 255, 0.01) !important;
+        border-left: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-bottom-left-radius: 12px !important;
+        border-bottom-right-radius: 12px !important;
+    }
+    
+    /* Button gradients */
+    div.stButton > button {
+        border-radius: 12px !important;
+        border: none !important;
+        padding: 10px 24px !important;
+        font-weight: 600 !important;
+        transition: all 0.3s ease !important;
+        color: white !important;
+    }
+    
+    /* Primary buttons (Download) */
+    div.stButton > button[type="primary"] {
+        background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%) !important;
+        box-shadow: 0 4px 15px rgba(255, 8, 68, 0.35) !important;
+    }
+    div.stButton > button[type="primary"]:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(255, 8, 68, 0.5) !important;
+    }
+    
+    /* Secondary/standard buttons (Fetch info, Save file) */
+    div.stButton > button:not([type="primary"]) {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.35) !important;
+    }
+    div.stButton > button:not([type="primary"]):hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5) !important;
+    }
+    
+    /* Dividers styling */
+    hr {
+        border-color: rgba(255, 255, 255, 0.1) !important;
+    }
+    
+    /* Labels and Titles */
+    h1, h2, h3, h4, h5, h6, p, span, label {
+        color: #f3f4f6 !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
@@ -55,7 +162,7 @@ def sanitize_filename(name):
 
 
 @st.cache_data(show_spinner=False, ttl=600)
-def fetch_info(url: str, cookie_bytes: bytes | None):
+def fetch_info(url: str, cookie_bytes: bytes | None, proxy: str | None = None):
     """Pull metadata only — no media is downloaded here."""
     ydl_opts = {
         "quiet": True,
@@ -65,6 +172,8 @@ def fetch_info(url: str, cookie_bytes: bytes | None):
         "retries": 2,
         "extractor_retries": 1,
     }
+    if proxy:
+        ydl_opts["proxy"] = proxy
     tmp_cookie_path = None
     if cookie_bytes:
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".txt")
@@ -117,10 +226,21 @@ with st.expander("⚠️ Before you use this"):
 
 url = st.text_input("Paste a video/audio URL", placeholder="https://...")
 
-with st.expander("Advanced options"):
+with st.expander("⚙️ Advanced options"):
     cookies_file = st.file_uploader(
         "Cookies file, Netscape format (optional — needed for age-restricted or private content)",
         type=["txt"],
+        help="Export cookies from your browser using an extension like 'Get cookies.txt LOCALLY' to bypass login walls/age gates."
+    )
+    proxy = st.text_input(
+        "Proxy Server URL (optional)",
+        placeholder="http://username:password@host:port or socks5://...",
+        help="Useful if the server's IP address is blocked or rate-limited by the platform."
+    )
+    custom_format = st.text_input(
+        "Custom Format Selector (optional)",
+        placeholder="e.g. bestvideo[height<=1080][ext=mp4]+bestaudio/best",
+        help="Override the standard video/audio quality selections with a custom yt-dlp format string."
     )
 
 if url:
@@ -132,7 +252,7 @@ if url:
                     cookie_bytes = cookies_file.read()
                 else:
                     cookie_bytes = None
-                info = fetch_info(url, cookie_bytes)
+                info = fetch_info(url, cookie_bytes, proxy)
                 st.session_state["info"] = info
                 st.session_state["cookie_bytes"] = cookie_bytes
                 st.session_state["url"] = url
@@ -156,8 +276,13 @@ if info and st.session_state.get("url") == url:
     mode = st.radio("Download as", ["Video", "Audio only"], horizontal=True)
 
     if mode == "Video":
-        quality_label = st.selectbox("Quality", list(VIDEO_QUALITY_MAP.keys()))
-        format_selector = VIDEO_QUALITY_MAP[quality_label]
+        if custom_format:
+            st.info(f"Using custom format: `{custom_format}`")
+            format_selector = custom_format
+            quality_label = f"Custom: {custom_format}"
+        else:
+            quality_label = st.selectbox("Quality", list(VIDEO_QUALITY_MAP.keys()))
+            format_selector = VIDEO_QUALITY_MAP[quality_label]
         audio_format = audio_quality = None
     else:
         audio_format = st.selectbox("Format", AUDIO_FORMATS)
@@ -166,7 +291,7 @@ if info and st.session_state.get("url") == url:
         format_selector = "bestaudio/best"
 
     # Construct a key for current download configuration to invalidate stale downloads if settings change
-    config_key = (url, mode, quality_label, audio_format, audio_quality)
+    config_key = (url, mode, quality_label, audio_format, audio_quality, proxy, custom_format)
     if "last_config_key" not in st.session_state or st.session_state["last_config_key"] != config_key:
         st.session_state["last_config_key"] = config_key
         st.session_state["downloaded_file"] = None
@@ -219,6 +344,8 @@ if info and st.session_state.get("url") == url:
             "socket_timeout": 15,
             "retries": 3,
         }
+        if proxy:
+            ydl_opts["proxy"] = proxy
 
         if mode == "Video":
             ydl_opts["merge_output_format"] = "mp4"
