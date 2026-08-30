@@ -162,7 +162,7 @@ def sanitize_filename(name):
 
 
 @st.cache_data(show_spinner=False, ttl=600)
-def fetch_info(url: str, cookie_bytes: bytes | None, proxy: str | None = None):
+def fetch_info(url: str, cookie_bytes: bytes | None, proxy: str | None = None, player_clients: list[str] | None = None):
     """Pull metadata only — no media is downloaded here."""
     ydl_opts = {
         "quiet": True,
@@ -178,6 +178,8 @@ def fetch_info(url: str, cookie_bytes: bytes | None, proxy: str | None = None):
             }
         },
     }
+    if player_clients:
+        ydl_opts["extractor_args"]["youtube"]["player_client"] = player_clients
     if proxy:
         ydl_opts["proxy"] = proxy
     tmp_cookie_path = None
@@ -239,7 +241,8 @@ with st.expander("❓ Why do some downloads fail? (Help & Troubleshooting)"):
         
         1. **Bot Detection / Rate Limiting (Sign-in blocks)**:
            - Platforms like YouTube actively block datacenter IP addresses (e.g., Streamlit Cloud servers).
-           - **Fix**: Use a **Proxy Server** in the Advanced Options to route your request through a home/residential IP.
+           - **Fix 1**: Use the **YouTube Client Spoofing** option under Advanced Options (defaults to Android, which bypasses many blocks).
+           - **Fix 2**: Use a **Proxy Server** in the Advanced Options to route your request through a home/residential IP.
         
         2. **Age-Restricted, Private, or Member-Only Content**:
            - These require you to be logged into YouTube to view.
@@ -273,6 +276,29 @@ with st.expander("⚙️ Advanced options"):
         placeholder="e.g. bestvideo[height<=1080][ext=mp4]+bestaudio/best",
         help="Override the standard video/audio quality selections with a custom yt-dlp format string."
     )
+    client_spoofing = st.selectbox(
+        "YouTube Client Spoofing (optional — helps bypass 403 Forbidden)",
+        options=[
+            "Android (Highly recommended for cloud/datacenter IPs)",
+            "iOS",
+            "TV (YouTube TV client)",
+            "Web Embedded",
+            "MWeb (Mobile Web)",
+            "Default (yt-dlp choice)",
+        ],
+        index=0,
+        help="Bypass blocklists on cloud environments (like Streamlit Cloud) by identifying as a mobile device or TV."
+    )
+    
+    client_map = {
+        "Default (yt-dlp choice)": None,
+        "Android (Highly recommended for cloud/datacenter IPs)": ["android"],
+        "iOS": ["ios"],
+        "TV (YouTube TV client)": ["tv"],
+        "Web Embedded": ["web_embedded"],
+        "MWeb (Mobile Web)": ["mweb"]
+    }
+    selected_player_clients = client_map.get(client_spoofing)
 
 if url:
     if st.button("🔍 Fetch info", use_container_width=True):
@@ -283,10 +309,11 @@ if url:
                     cookie_bytes = cookies_file.read()
                 else:
                     cookie_bytes = None
-                info = fetch_info(url, cookie_bytes, proxy)
+                info = fetch_info(url, cookie_bytes, proxy, selected_player_clients)
                 st.session_state["info"] = info
                 st.session_state["cookie_bytes"] = cookie_bytes
                 st.session_state["url"] = url
+                st.session_state["player_clients"] = selected_player_clients
             except Exception as e:
                 st.error(f"Couldn't fetch info: {e}")
                 st.session_state.pop("info", None)
@@ -322,7 +349,7 @@ if info and st.session_state.get("url") == url:
         format_selector = "bestaudio/best"
 
     # Construct a key for current download configuration to invalidate stale downloads if settings change
-    config_key = (url, mode, quality_label, audio_format, audio_quality, proxy, custom_format)
+    config_key = (url, mode, quality_label, audio_format, audio_quality, proxy, custom_format, client_spoofing)
     if "last_config_key" not in st.session_state or st.session_state["last_config_key"] != config_key:
         st.session_state["last_config_key"] = config_key
         st.session_state["downloaded_file"] = None
@@ -380,6 +407,8 @@ if info and st.session_state.get("url") == url:
                 }
             },
         }
+        if selected_player_clients:
+            ydl_opts["extractor_args"]["youtube"]["player_client"] = selected_player_clients
         if proxy:
             ydl_opts["proxy"] = proxy
 
