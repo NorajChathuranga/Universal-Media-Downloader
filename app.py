@@ -179,6 +179,7 @@ def fetch_info(url: str, cookie_bytes: bytes | None, proxy: str | None = None, p
             "bun": {},
         },
         "cachedir": False,
+        "nocheckcertificate": True,
         "extractor_args": {
             "youtube": {}
         },
@@ -271,11 +272,47 @@ with st.expander("⚙️ Advanced options"):
         type=["txt"],
         help="Export cookies from your browser using an extension like 'Get cookies.txt LOCALLY' to bypass login walls/age gates."
     )
-    proxy = st.text_input(
-        "Proxy Server URL (optional)",
-        placeholder="http://username:password@host:port or socks5://...",
-        help="Useful if the server's IP address is blocked or rate-limited by the platform."
+    
+    proxy_choice = st.selectbox(
+        "Residential Proxy Routing",
+        options=[
+            "Auto (Recommended - Rotates Premium Proxies)",
+            "ScraperAPI Premium",
+            "ZenRows Premium",
+            "None (Direct Connection)",
+            "Custom (Enter below)"
+        ],
+        index=0,
+        help="Route requests through premium residential proxy services to bypass IP blocking."
     )
+    
+    if proxy_choice == "Custom (Enter below)":
+        proxy = st.text_input(
+            "Proxy Server URL",
+            placeholder="http://username:password@host:port or socks5://...",
+            help="Useful if the server's IP address is blocked or rate-limited by the platform."
+        )
+    else:
+        proxy = None
+        
+    scraperapi_key = st.secrets.get("scraperapi_key", "c4496455350c08883beb45627e7a8b06")
+    zenrows_key = st.secrets.get("zenrows_key", "f73c47af5ac30184cfd43319babd41e9af91c039")
+    
+    SCRAPERAPI_PROXY = f"http://scraperapi.premium=true:{scraperapi_key}@proxy-server.scraperapi.com:8001"
+    ZENROWS_PROXY = f"http://{zenrows_key}:premium_proxy=true@proxy.zenrows.com:8001"
+    
+    if proxy_choice == "Auto (Recommended - Rotates Premium Proxies)":
+        import random
+        selected_proxy = random.choice([SCRAPERAPI_PROXY, ZENROWS_PROXY])
+    elif proxy_choice == "ScraperAPI Premium":
+        selected_proxy = SCRAPERAPI_PROXY
+    elif proxy_choice == "ZenRows Premium":
+        selected_proxy = ZENROWS_PROXY
+    elif proxy_choice == "Custom (Enter below)":
+        selected_proxy = proxy
+    else:
+        selected_proxy = None
+
     custom_format = st.text_input(
         "Custom Format Selector (optional)",
         placeholder="e.g. bestvideo[height<=1080][ext=mp4]+bestaudio/best",
@@ -316,13 +353,25 @@ if url:
                     cookie_bytes = cookies_file.read()
                 else:
                     cookie_bytes = None
-                info = fetch_info(url, cookie_bytes, proxy, selected_player_clients)
+                info = fetch_info(url, cookie_bytes, selected_proxy, selected_player_clients)
                 st.session_state["info"] = info
                 st.session_state["cookie_bytes"] = cookie_bytes
                 st.session_state["url"] = url
                 st.session_state["player_clients"] = selected_player_clients
             except Exception as e:
-                st.error(f"Couldn't fetch info: {e}")
+                err_msg = str(e)
+                if "403" in err_msg or "Forbidden" in err_msg:
+                    st.error(
+                        "❌ **Metadata fetching failed: HTTP Error 403: Forbidden**\n\n"
+                        "The Streamlit server's IP address has been blocked by the platform. "
+                        "Because cloud servers share IP addresses, they are frequently flagged by anti-bot systems.\n\n"
+                        "**How to fix this:**\n"
+                        "1. **Use a Cookies File:** Download your browser cookies in Netscape format and upload them under **Advanced options** below.\n"
+                        "2. **Use a Proxy:** Set a residential or personal Proxy URL under **Advanced options**.\n"
+                        "3. **Run Locally:** Run this application locally on your computer! Your home network IP is clean and will download instantly without cookies or proxies."
+                    )
+                else:
+                    st.error(f"Couldn't fetch info: {e}")
                 st.session_state.pop("info", None)
 
 info = st.session_state.get("info")
@@ -356,7 +405,7 @@ if info and st.session_state.get("url") == url:
         format_selector = "bestaudio/best"
 
     # Construct a key for current download configuration to invalidate stale downloads if settings change
-    config_key = (url, mode, quality_label, audio_format, audio_quality, proxy, custom_format, client_spoofing)
+    config_key = (url, mode, quality_label, audio_format, audio_quality, selected_proxy, custom_format, client_spoofing)
     if "last_config_key" not in st.session_state or st.session_state["last_config_key"] != config_key:
         st.session_state["last_config_key"] = config_key
         st.session_state["downloaded_file"] = None
@@ -415,14 +464,15 @@ if info and st.session_state.get("url") == url:
                 "bun": {},
             },
             "cachedir": False,
+            "nocheckcertificate": True,
             "extractor_args": {
                 "youtube": {}
             },
         }
         if selected_player_clients:
             ydl_opts["extractor_args"]["youtube"]["player_client"] = selected_player_clients
-        if proxy:
-            ydl_opts["proxy"] = proxy
+        if selected_proxy:
+            ydl_opts["proxy"] = selected_proxy
 
         if mode == "Video":
             ydl_opts["merge_output_format"] = "mp4"
@@ -459,7 +509,18 @@ if info and st.session_state.get("url") == url:
                     "data": data
                 }
         except Exception as e:
-            st.error(f"Download failed: {e}")
+            err_msg = str(e)
+            if "403" in err_msg or "Forbidden" in err_msg:
+                st.error(
+                    "❌ **Download failed: HTTP Error 403: Forbidden**\n\n"
+                    "YouTube (or the host platform) has blocked the Streamlit server's IP address from downloading the video data.\n\n"
+                    "**How to solve this:**\n"
+                    "1. **Use a Cookies File:** Download your browser cookies using a Netscape cookies extension and upload them under **Advanced options** above.\n"
+                    "2. **Use a Proxy:** Specify a residential or personal Proxy URL under **Advanced options**.\n"
+                    "3. **Run Locally:** Run this application locally on your computer! Your home network IP is clean and will download instantly without cookies or proxies."
+                )
+            else:
+                st.error(f"Download failed: {e}")
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
             if tmp_cookie_path:
