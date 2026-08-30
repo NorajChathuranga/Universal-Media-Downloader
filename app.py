@@ -284,19 +284,21 @@ with st.expander("⚙️ Advanced options"):
     client_spoofing = st.selectbox(
         "YouTube Client Spoofing (optional — helps bypass 403 Forbidden)",
         options=[
+            "Default (excluding android_vr - Recommended)",
             "Android (Highly recommended for cloud/datacenter IPs)",
             "iOS",
             "TV (YouTube TV client)",
             "Web Embedded",
             "MWeb (Mobile Web)",
-            "Default (yt-dlp choice)",
+            "Full Default (yt-dlp choice)",
         ],
         index=0,
         help="Bypass blocklists on cloud environments (like Streamlit Cloud) by identifying as a mobile device or TV."
     )
     
     client_map = {
-        "Default (yt-dlp choice)": None,
+        "Full Default (yt-dlp choice)": None,
+        "Default (excluding android_vr - Recommended)": ["default", "-android_vr"],
         "Android (Highly recommended for cloud/datacenter IPs)": ["android"],
         "iOS": ["ios"],
         "TV (YouTube TV client)": ["tv"],
@@ -306,7 +308,7 @@ with st.expander("⚙️ Advanced options"):
     selected_player_clients = client_map.get(client_spoofing)
 
 if url:
-    if st.button("🔍 Fetch info", use_container_width=True):
+    if st.button("🔍 Fetch info", width="stretch"):
         with st.spinner("Fetching metadata..."):
             try:
                 if cookies_file:
@@ -329,7 +331,7 @@ if info and st.session_state.get("url") == url:
     with col1:
         thumb = info.get("thumbnail")
         if thumb:
-            st.image(thumb, use_container_width=True)
+            st.image(thumb, width="stretch")
     with col2:
         st.subheader(info.get("title", "Untitled"))
         st.write(f"**Uploader:** {info.get('uploader', 'unknown')}")
@@ -359,7 +361,7 @@ if info and st.session_state.get("url") == url:
         st.session_state["last_config_key"] = config_key
         st.session_state["downloaded_file"] = None
 
-    if st.button("⬇️ Download", type="primary", use_container_width=True):
+    if st.button("⬇️ Download", type="primary", width="stretch"):
         st.session_state["downloaded_file"] = None
         progress_bar = st.progress(0)
         status_text = st.empty()
@@ -471,7 +473,7 @@ if info and st.session_state.get("url") == url:
             "💾 Save file",
             data=downloaded_file["data"],
             file_name=sanitize_filename(downloaded_file["name"]),
-            use_container_width=True,
+            width="stretch",
             key="save_download_button"
         )
 else:
