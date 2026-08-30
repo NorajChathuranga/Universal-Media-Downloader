@@ -172,7 +172,12 @@ def fetch_info(url: str, cookie_bytes: bytes | None, proxy: str | None = None, p
         "retries": 2,
         "extractor_retries": 1,
         "noplaylist": True,     # ignore playlist parameters to extract only the target video metadata instantly
-        "js_runtimes": ["deno", "node", "nodejs", "quickjs", "bun"],
+        "js_runtimes": {
+            "deno": {},
+            "node": {},
+            "quickjs": {},
+            "bun": {},
+        },
         "cachedir": False,
         "extractor_args": {
             "youtube": {}
@@ -401,7 +406,12 @@ if info and st.session_state.get("url") == url:
             "no_warnings": True,
             "socket_timeout": 15,
             "retries": 3,
-            "js_runtimes": ["deno", "node", "nodejs", "quickjs", "bun"],
+            "js_runtimes": {
+                "deno": {},
+                "node": {},
+                "quickjs": {},
+                "bun": {},
+            },
             "cachedir": False,
             "extractor_args": {
                 "youtube": {}
